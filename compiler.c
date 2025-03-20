@@ -112,9 +112,16 @@ int getNextToken(void)
                 pCrtCh++;          // consume the character
                 state = 1;         // set the new state
             }
-            else if (ch == '=')
+            else if (ch == '0')
             {
+                pStartCh = pCrtCh;
                 pCrtCh++;
+                state = 5;
+            }
+            else if (isdigit(ch))
+            {
+                pStartCh = pCrtCh;
+                // pCrtCh++;
                 state = 3;
             }
             else if (ch == ' ' || ch == '\r' || ch == '\t')
@@ -143,7 +150,7 @@ int getNextToken(void)
             // Laboratory Compilation Techniques, Politehnica University Timisoara. © Aciu Razvan Mihai
             break;
 
-        case 2:
+        case 2:                      // final state ID
             nCh = pCrtCh - pStartCh; // the id length
             // keywords tests
             if (nCh == 5 && !memcmp(pStartCh, "break", 5))
@@ -163,57 +170,137 @@ int getNextToken(void)
             return tk->code;
 
         case 3:
-            if (ch == '=')
+            if (isdigit(ch))
+                pCrtCh++;
+            else if (ch == '.')
             {
                 pCrtCh++;
-                state = 4;
+                state = 8;
+            }
+            else if (ch == 'e' || ch == 'E')
+            {
+                pCrtCh++;
+                state = 10;
             }
             else
-                state = 5;
+                state = 4;
             break;
-
-        case 4:
-            addTk(EQUAL);
-            return EQUAL;
-        case 5:
-            addTk(ASSIGN);
-            pStartCh = pCrtCh;
-            state = 6;
-            break;
-            // return ASSIGN;
-
-        case 6: // Number detection
-            if (isdigit(ch))
+        case 4: // final state for CT_INT
+        {
+            nCh = pCrtCh - pStartCh;
+            if (nCh > 10)
+                tkerr(addTk(END), "integer too large");
+            tk = addTk(CT_INT);
+            tk->i = strtol(pStartCh, NULL, 10);
+            return tk->code;
+        }
+        case 5: // modify to also jump to state 10
+        {
+            if (ch == 'x')
             {
                 pCrtCh++;
+                state = 6;
+            }
+            else if(ch == 'e' || ch == 'E'){
+                pCrtCh++;
+                state = 10;
             }
             else if (ch == '.')
             {
                 pCrtCh++;
-                state = 7;
+                state = 8;
+            }
+            else if (ch >= '0' && ch <= '7')
+                pCrtCh++;
+            else if (ch == '8' || ch == '9')
+            {
+                pCrtCh++;
+                state = 3;
             }
             else
-                state = 8;
+                state = 4;
             break;
-
-        case 7: // Real number detection
+        }
+        case 6:
+        {
+            if (isxdigit(ch))
+            {
+                pCrtCh++;
+                state = 7;
+            }
+            break;
+        }
+        case 7:
+        {
+            if (isxdigit(ch))
+                pCrtCh++;
+            else
+                state = 4;
+            break;
+        }
+        case 8:
+        {
+            if (isdigit(ch))
+            {
+                pCrtCh++;
+                state = 9;
+            }
+            else
+                tkerr(addTk(END), "invalid real number");
+            break;
+        }
+        case 9:
+        {
+            if (isdigit(ch))
+                pCrtCh++;
+            else if (ch == 'e' || ch == 'E')
+            {
+                pCrtCh++;
+                state = 10;
+            }
+            else
+                // tkerr(addTk(END), "invalid real number");
+                state = 13;
+            break;
+        }
+        case 10:
+        {
+            if (ch == '+' || ch == '-' || isdigit(ch))
+            {
+                pCrtCh++;
+                state = 11;
+            }
+            else
+                tkerr(addTk(END), "invalid real number");
+            break;
+        }
+        case 11:
+        {
+            if (isdigit(ch)){
+                pCrtCh++;
+                state = 12;
+            }
+            else
+                tkerr(addTk(END), "invalid real number");
+            break;
+        }
+        case 12:
+        {
             if (isdigit(ch))
                 pCrtCh++;
             else
-                state = 9;
+                state = 13;
             break;
-
-        case 8:
-            tk = addTk(CT_INT);
-            tk->i = strtol(pStartCh, NULL, 10);
-            return CT_INT;
-
-        case 9:
+        }
+        case 13:
+        {
+            nCh = pCrtCh - pStartCh;
             tk = addTk(CT_REAL);
-            tk->r = strtod(pStartCh, NULL);
-            return CT_REAL;
+            tk->r = strtof(pStartCh, NULL);
+            return tk->code;
         }
     }
+}
 }
 
 int main(void)
@@ -241,11 +328,11 @@ int main(void)
     while (tk)
     {
         printf("Token: %d, Line: %d", tk->code, tk->line);
-        if(tk->i && tk->code == CT_INT)
+        if (tk->i && tk->code == CT_INT)
             printf(", Value: %ld\n", tk->i);
-        else if(tk->r && tk->code == CT_REAL)
+        else if (tk->r && tk->code == CT_REAL)
             printf(", Value: %lf\n", tk->r);
-        else if(tk->text && tk->code == ID)
+        else if (tk->text && tk->code == ID)
             printf(", Value: %s\n", tk->text);
         else
             printf("\n");
