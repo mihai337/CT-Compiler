@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 // OPTION + SHIFT + F to format the code
 
@@ -15,6 +16,34 @@ enum
     CT_REAL,
     EQUAL,
     ASSIGN,
+    ELSE,
+    FOR,
+    IF,
+    RETURN,
+    STRUCT,
+    VOID,
+    WHILE,
+    COMMA,
+    SEMICOLON,
+    LPAR,
+    RPAR,
+    LBRACKET,
+    RBRACKET,
+    LACC,
+    RACC,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    DOT,
+    AND,
+    OR,
+    NOT,
+    NOTEQ,
+    LESS,
+    LESSEQ,
+    GREATER,
+    GREATEREQ,
     END
 }; // tokens codes
 
@@ -93,6 +122,28 @@ char *createString(const char *pStartCh, const char *pEndCh)
     return pStr;
 }
 
+int isDelimiter(char ch)
+{
+    char delimiters[30] = ",;()[]{}";
+    for (int i = 0; i < strlen(delimiters); i++)
+    {
+        if (ch == delimiters[i])
+            return 1;
+    }
+    return 0;
+}
+
+int isOperator(char ch)
+{
+    char operators[30] = "+-*/&|!<>=";
+    for (int i = 0; i < strlen(operators); i++)
+    {
+        if (ch == operators[i])
+            return 1;
+    }
+    return 0;
+}
+
 int getNextToken(void)
 {
     int state = 0, nCh;
@@ -111,6 +162,18 @@ int getNextToken(void)
                 pStartCh = pCrtCh; // memorizes the beginning of the ID
                 pCrtCh++;          // consume the character
                 state = 1;         // set the new state
+            }
+            else if(isDelimiter(ch))
+            {
+                pStartCh = pCrtCh;
+                pCrtCh++;
+                state = 2;
+            }
+            else if(isOperator(ch))
+            {
+                pStartCh = pCrtCh;
+                pCrtCh++;
+                state = 15;
             }
             else if (ch == '0')
             {
@@ -150,7 +213,9 @@ int getNextToken(void)
             // Laboratory Compilation Techniques, Politehnica University Timisoara. © Aciu Razvan Mihai
             break;
 
-        case 2:                      // final state ID
+        case 2: // final state ID
+
+            // keywords
             nCh = pCrtCh - pStartCh; // the id length
             // keywords tests
             if (nCh == 5 && !memcmp(pStartCh, "break", 5))
@@ -161,6 +226,66 @@ int getNextToken(void)
                 tk = addTk(CT_INT);
             else if (nCh == 5 && !memcmp(pStartCh, "float", 5))
                 tk = addTk(CT_REAL);
+            else if (nCh == 4 && !memcmp(pStartCh, "else", 4))
+                tk = addTk(ELSE);
+            else if (nCh == 3 && !memcmp(pStartCh, "for", 3))
+                tk = addTk(FOR);
+            else if (nCh == 2 && !memcmp(pStartCh, "if", 2))
+                tk = addTk(IF);
+            else if (nCh == 6 && !memcmp(pStartCh, "return", 6))
+                tk = addTk(RETURN);
+            else if (nCh == 6 && !memcmp(pStartCh, "struct", 6))
+                tk = addTk(STRUCT);
+            else if (nCh == 4 && !memcmp(pStartCh, "void", 4))
+                tk = addTk(VOID);
+            else if (nCh == 5 && !memcmp(pStartCh, "while", 5))
+                tk = addTk(WHILE);
+            else if (nCh == 1 && !memcmp(pStartCh, ",", 1))
+                tk = addTk(COMMA);
+            else if (nCh == 1 && !memcmp(pStartCh, ";", 1))
+                tk = addTk(SEMICOLON);
+            else if (nCh == 1 && !memcmp(pStartCh, "(", 1))
+                tk = addTk(LPAR);
+            else if (nCh == 1 && !memcmp(pStartCh, ")", 1))
+                tk = addTk(RPAR);
+            else if (nCh == 1 && !memcmp(pStartCh, "[", 1))
+                tk = addTk(LBRACKET);
+            else if (nCh == 1 && !memcmp(pStartCh, "]", 1))
+                tk = addTk(RBRACKET);
+            else if (nCh == 1 && !memcmp(pStartCh, "{", 1))
+                tk = addTk(LACC);
+            else if (nCh == 1 && !memcmp(pStartCh, "}", 1))
+                tk = addTk(RACC);
+            else if (nCh == 1 && !memcmp(pStartCh, "+", 1))
+                tk = addTk(ADD);
+            else if (nCh == 1 && !memcmp(pStartCh, "-", 1))
+                tk = addTk(SUB);
+            else if (nCh == 1 && !memcmp(pStartCh, "*", 1))
+                tk = addTk(MUL);
+            else if (nCh == 1 && !memcmp(pStartCh, "/", 1))
+                tk = addTk(DIV);
+            else if (nCh == 1 && !memcmp(pStartCh, ".", 1))
+                tk = addTk(DOT);
+            else if (nCh == 1 && !memcmp(pStartCh, "&", 1))
+                tk = addTk(AND);
+            else if (nCh == 1 && !memcmp(pStartCh, "|", 1))
+                tk = addTk(OR);
+            else if (nCh == 1 && !memcmp(pStartCh, "!", 1))
+                tk = addTk(NOT);
+            else if (nCh == 2 && !memcmp(pStartCh, "==", 2))
+                tk = addTk(EQUAL);
+            else if (nCh == 2 && !memcmp(pStartCh, "!=", 2))
+                tk = addTk(NOTEQ);
+            else if (nCh == 1 && !memcmp(pStartCh, "<", 1))
+                tk = addTk(LESS);
+            else if (nCh == 2 && !memcmp(pStartCh, "<=", 2))
+                tk = addTk(LESSEQ);
+            else if (nCh == 1 && !memcmp(pStartCh, ">", 1))
+                tk = addTk(GREATER);
+            else if (nCh == 2 && !memcmp(pStartCh, ">=", 2))
+                tk = addTk(GREATEREQ);
+            else if (nCh == 1 && !memcmp(pStartCh, "=", 1))
+                tk = addTk(ASSIGN);
             // … all keywords …
             else
             { // if no keyword, then it is an ID
@@ -194,14 +319,15 @@ int getNextToken(void)
             tk->i = strtol(pStartCh, NULL, 0);
             return tk->code;
         }
-        case 5: // modify to also jump to state 10
+        case 5:
         {
             if (ch == 'x')
             {
                 pCrtCh++;
                 state = 6;
             }
-            else if(ch == 'e' || ch == 'E'){
+            else if (ch == 'e' || ch == 'E')
+            {
                 pCrtCh++;
                 state = 10;
             }
@@ -276,7 +402,8 @@ int getNextToken(void)
         }
         case 11:
         {
-            if (isdigit(ch)){
+            if (isdigit(ch))
+            {
                 pCrtCh++;
                 state = 12;
             }
@@ -299,8 +426,29 @@ int getNextToken(void)
             tk->r = strtof(pStartCh, NULL);
             return tk->code;
         }
+        case 14: // handle delimiters
+        {
+            if (isDelimiter(ch))
+            {
+                pCrtCh++;
+                state = 2;
+            }
+            else
+                tkerr(addTk(END), "invalid character");
+            break;
+        }
+        case 15: // handle operators
+        {
+            if (isOperator(ch))
+            {
+                pCrtCh++;
+            }
+            else
+                state = 2;
+            break;
+        }
+        }
     }
-}
 }
 
 int main(void)
