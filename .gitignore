@@ -1,2 +1,6 @@
 *.out
 .vscode
+test.c
+build
+compiler
+compiler.dSYM

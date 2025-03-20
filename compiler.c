@@ -4,16 +4,17 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-// SHIFT + ALT + F to format the code
-
-// TODO: make the code work
-// TODO: implement CT_INT and CT_REAL
+// OPTION + SHIFT + F to format the code
 
 enum
 {
     ID,
     BREAK,
     CHAR,
+    CT_INT,
+    CT_REAL,
+    EQUAL,
+    ASSIGN,
     END
 }; // tokens codes
 
@@ -43,7 +44,7 @@ void err(const char *fmt, ...)
     vfprintf(stderr, fmt, va);
     fputc('\n', stderr);
     va_end(va);
-    exit(-1);
+    exit(EXIT_FAILURE);
 }
 
 void tkerr(const Token *tk, const char *fmt, ...)
@@ -54,7 +55,7 @@ void tkerr(const Token *tk, const char *fmt, ...)
     vfprintf(stderr, fmt, va);
     fputc('\n', stderr);
     va_end(va);
-    exit(-1);
+    exit(EXIT_FAILURE);
 }
 
 #define SAFEALLOC(var, Type)                          \
@@ -82,9 +83,9 @@ Token *addTk(int code)
     return tk;
 }
 
-char *createString(const char *pStartCh, const char *pCrtCh)
+char *createString(const char *pStartCh, const char *pEndCh)
 {
-    int len = pCrtCh - pStartCh;
+    int len = pEndCh - pStartCh;
     char *pStr;
     SAFEALLOC(pStr, char);
     memcpy(pStr, pStartCh, len);
@@ -92,12 +93,13 @@ char *createString(const char *pStartCh, const char *pCrtCh)
     return pStr;
 }
 
-int getNextToken()
+int getNextToken(void)
 {
     int state = 0, nCh;
     char ch;
     const char *pStartCh;
     Token *tk;
+
     while (1)
     { // infinite loop
         ch = *pCrtCh;
@@ -132,6 +134,7 @@ int getNextToken()
             else
                 tkerr(addTk(END), "invalid character");
             break;
+
         case 1:
             if (isalnum(ch) || ch == '_')
                 pCrtCh++;
@@ -139,6 +142,7 @@ int getNextToken()
                 state = 2;
             // Laboratory Compilation Techniques, Politehnica University Timisoara. © Aciu Razvan Mihai
             break;
+
         case 2:
             nCh = pCrtCh - pStartCh; // the id length
             // keywords tests
@@ -146,6 +150,10 @@ int getNextToken()
                 tk = addTk(BREAK);
             else if (nCh == 4 && !memcmp(pStartCh, "char", 4))
                 tk = addTk(CHAR);
+            else if (nCh == 3 && !memcmp(pStartCh, "int", 3))
+                tk = addTk(CT_INT);
+            else if (nCh == 5 && !memcmp(pStartCh, "float", 5))
+                tk = addTk(CT_REAL);
             // … all keywords …
             else
             { // if no keyword, then it is an ID
@@ -153,18 +161,98 @@ int getNextToken()
                 tk->text = createString(pStartCh, pCrtCh);
             }
             return tk->code;
+
+        case 3:
+            if (ch == '=')
+            {
+                pCrtCh++;
+                state = 4;
+            }
+            else
+                state = 5;
+            break;
+
+        case 4:
+            addTk(EQUAL);
+            return EQUAL;
+        case 5:
+            addTk(ASSIGN);
+            pStartCh = pCrtCh;
+            state = 6;
+            break;
+            // return ASSIGN;
+
+        case 6: // Number detection
+            if (isdigit(ch))
+            {
+                pCrtCh++;
+            }
+            else if (ch == '.')
+            {
+                pCrtCh++;
+                state = 7;
+            }
+            else
+                state = 8;
+            break;
+
+        case 7: // Real number detection
+            if (isdigit(ch))
+                pCrtCh++;
+            else
+                state = 9;
+            break;
+
+        case 8:
+            tk = addTk(CT_INT);
+            tk->i = strtol(pStartCh, NULL, 10);
+            return CT_INT;
+
+        case 9:
+            tk = addTk(CT_REAL);
+            tk->r = strtod(pStartCh, NULL);
+            return CT_REAL;
         }
     }
 }
 
-int main()
+int main(void)
 {
-    // read from a c file
-    FILE *f = fopen("compiler.c", "r");
-    if (f == NULL)
+    FILE *f = fopen("test.c", "r");
+    if (!f)
+        err("Cannot open file");
+
+    fseek(f, 0, SEEK_END);
+    long fSize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    pCrtCh = (char *)malloc(fSize + 1);
+    if (!pCrtCh)
+        err("Not enough memory");
+
+    fread(pCrtCh, 1, fSize, f);
+    pCrtCh[fSize] = '\0';
+    fclose(f);
+
+    while (getNextToken() != END)
+        ;
+
+    Token *tk = tokens;
+    while (tk)
     {
-        err("cannot open the file");
+        printf("Token: %d, Line: %d", tk->code, tk->line);
+        if(tk->i && tk->code == CT_INT)
+            printf(", Value: %ld\n", tk->i);
+        else if(tk->r && tk->code == CT_REAL)
+            printf(", Value: %lf\n", tk->r);
+        else if(tk->text && tk->code == ID)
+            printf(", Value: %s\n", tk->text);
+        else
+            printf("\n");
+
+        tk = tk->next;
     }
 
-    
+    // free(pCrtCh);
+    return 0;
 }
