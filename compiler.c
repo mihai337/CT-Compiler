@@ -191,7 +191,7 @@ int getNextToken(void)
             if (nCh > 10)
                 tkerr(addTk(END), "integer too large");
             tk = addTk(CT_INT);
-            tk->i = strtol(pStartCh, NULL, 10);
+            tk->i = strtol(pStartCh, NULL, 0);
             return tk->code;
         }
         case 5: // modify to also jump to state 10
