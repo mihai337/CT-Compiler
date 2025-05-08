@@ -4,3 +4,4 @@ test.c
 build
 compiler
 compiler.dSYM
+.DS_Store

@@ -7,9 +7,7 @@
 
 // OPTION + SHIFT + F to format the code
 
-// TODO: add comments, be careful, both comments and div start with '/'
 // TODO: add support for multi-line comments
-// TODO: remove same id for logical and binary AND,OR,...
 
 enum
 {
@@ -50,6 +48,8 @@ enum
     LESSEQ,
     GREATER,
     GREATEREQ,
+    SCOMMENT,
+    MCOMMENT,
     END
 }; // tokens codes
 
@@ -91,6 +91,8 @@ char *tokenNames[] = {
     "LESSEQ",
     "GREATER",
     "GREATEREQ",
+    "SCOMMENT",
+    "MCOMMENT",
     "END"
 };
 
@@ -171,7 +173,7 @@ char *createString(const char *pStartCh, const char *pEndCh)
 
 int isDelimiter(char ch)
 {
-    char delimiters[30] = ".,;()[]{}";
+    char delimiters[30] = ",;()[]{}";
     for (int i = 0; i < strlen(delimiters); i++)
     {
         if (ch == delimiters[i])
@@ -182,7 +184,7 @@ int isDelimiter(char ch)
 
 int isOperator(char ch)
 {
-    char operators[30] = "+-*/&|!<>=";
+    char operators[30] = ".+-*/&|!<>=";
     for (int i = 0; i < strlen(operators); i++)
     {
         if (ch == operators[i])
@@ -323,12 +325,8 @@ int getNextToken(void)
                 tk = addTk(DIV);
             else if (nCh == 1 && !memcmp(pStartCh, ".", 1))
                 tk = addTk(DOT);
-            else if (nCh == 1 && !memcmp(pStartCh, "&", 1))
-                tk = addTk(AND);
             else if (nCh == 2 && !memcmp(pStartCh, "&&", 2))
                 tk = addTk(AND);
-            else if (nCh == 1 && !memcmp(pStartCh, "|", 1))
-                tk = addTk(OR);
             else if (nCh == 2 && !memcmp(pStartCh, "||", 2))
                 tk = addTk(OR);
             else if (nCh == 1 && !memcmp(pStartCh, "!", 1))
@@ -491,16 +489,16 @@ int getNextToken(void)
             tk->r = strtof(pStartCh, NULL);
             return tk->code;
         }
-        case 14: // handle delimiters
+        case 14: // consume single-line comment
         {
-            if (isDelimiter(ch))
-            {
-                pCrtCh++;
-                state = 2;
+            if(!strchr("\n\r\0",ch)){
+                pCrtCh++; 
+            }   
+            else{
+                // tk = addTk(SCOMMENT);
+                // tk->text = createString(pStartCh, pCrtCh);
+                return -1;
             }
-            else
-                tkerr(addTk(END), "invalid character");
-            break;
         }
         case 15: // handle operators
         {
@@ -508,8 +506,15 @@ int getNextToken(void)
             {
                 pCrtCh++;
             }
-            else
-                state = 2;
+            if(!memcmp(pStartCh, "//", 2)){
+                state = 14;
+                break;
+            }
+            else if(!memcmp(pStartCh, "/*", 2)){
+                state = 18;
+                break;
+            }
+            state = 2;
             break;
         }
         case 16: //handle char
@@ -548,16 +553,52 @@ int getNextToken(void)
             }
             break;
         }
+        case 18:
+        {
+            if(ch == '*')
+            {
+                pCrtCh++;
+                state = 19;
+                break;
+            }
+            else if(ch == '\0')
+            {
+                tkerr(addTk(END), "unclosed comment");
+            }
+            else
+            {
+                pCrtCh++;
+                break;
+            }
+        }
+        case 19:
+        {
+            if(ch == '/')
+            {
+                pCrtCh++;
+                // tk = addTk(MCOMMENT);
+                // tk->text = createString(pStartCh, pCrtCh);
+                return -1;
+            }
+            else if(ch == '\0')
+            {
+                tkerr(addTk(END), "unclosed comment");
+            }
+            else
+            {
+                pCrtCh++;
+                state = 18;
+                break;
+            }
+            break;
         }
     }
 }
+}
 
-int main(int argc, char **argv)
+Token* lexical_analyzer(char *filename)
 {
-    if (argc < 2)
-        err("Usage: %s <filename>", argv[0]);
-
-    FILE *f = fopen(argv[1], "r");
+    FILE *f = fopen(filename, "r");
     if (!f)
         err("Cannot open file");
 
@@ -577,6 +618,16 @@ int main(int argc, char **argv)
         ;
 
     Token *tk = tokens;
+    return tk;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc < 2)
+        err("Usage: %s <filename>", argv[0]);
+
+    Token *tk = lexical_analyzer(argv[1]);
+    
     while (tk)
     {
         printf("Token: %s, Line: %d", tokenNames[tk->code], tk->line);
@@ -584,7 +635,7 @@ int main(int argc, char **argv)
             printf(", Value: %ld\n", tk->i);
         else if (tk->r && tk->code == CT_REAL)
             printf(", Value: %lf\n", tk->r);
-        else if (tk->text && (tk->code == ID || tk->code == CT_STRING))
+        else if (tk->text && (tk->code == ID || tk->code == CT_STRING || tk->code == SCOMMENT || tk->code == MCOMMENT))
             printf(", Value: %s\n", tk->text);
         else
             printf("\n");
